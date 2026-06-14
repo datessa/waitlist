@@ -21,9 +21,13 @@
     font-family:"Inter",-apple-system,"Helvetica Neue",Arial,sans-serif;color:var(--ink);
     -webkit-font-smoothing:antialiased}
 
-  /* background scene — overscanned so the canvas-painted badge sits past the viewport edge */
-  #scene{position:fixed;left:0;right:0;top:-7vh;bottom:-7vh;z-index:0;overflow:hidden}
-  #scene spline-viewer{width:107%;height:100%;display:block;transform:translateX(-3.5%)}
+  /* background scene — rendered at reduced internal resolution for GPU savings,
+     then scaled up (soft abstract scene hides the slight softening), and
+     overscanned so the canvas-painted badge sits past the viewport edge */
+  #scene{position:fixed;inset:-8vh -5vw -8vh -5vw;z-index:0;overflow:hidden;
+    background:radial-gradient(70% 90% at 24% 40%,#10131c 0%,#070708 60%)}
+  #scene spline-viewer{width:72%;height:72%;display:block;
+    transform-origin:top left;transform:scale(1.52)}
 
   /* legibility scrim */
   .scrim{position:fixed;inset:0;z-index:1;pointer-events:none;
@@ -75,6 +79,12 @@
   .wl-done .s{margin-top:8px;font-size:.95rem;color:var(--muted)}
 
   @media (prefers-reduced-motion: reduce){
+    /* no WebGL at all — static gradient backdrop */
+    #scene spline-viewer{display:none}
+    #scene{background:
+      radial-gradient(60% 70% at 22% 38%,#1a2340 0%,transparent 60%),
+      radial-gradient(50% 60% at 80% 70%,#241a3a 0%,transparent 60%),
+      #070708}
     .hero,.chrome{opacity:1;transform:none;transition:none}
   }
   @media(max-width:640px){
@@ -97,21 +107,21 @@
         if(logo){ logo.remove(); return true; }
         return false;
       }
-      var tries=0, iv=setInterval(function(){ if(kill()||++tries>80) clearInterval(iv); },80);
-      v.addEventListener('load',kill);
+      // one-shot: stop watching as soon as it's removed or after load (no perpetual observer)
+      var mo=new MutationObserver(function(){ if(kill()) mo.disconnect(); });
       var so=setInterval(function(){
-        if(v.shadowRoot){ new MutationObserver(kill).observe(v.shadowRoot,{childList:true,subtree:true}); clearInterval(so); kill(); }
-      },80);
+        if(v.shadowRoot){ mo.observe(v.shadowRoot,{childList:true,subtree:true}); clearInterval(so); kill(); }
+      },120);
+      v.addEventListener('load',function(){ kill(); setTimeout(function(){ mo.disconnect(); },1000); });
+      setTimeout(function(){ clearInterval(so); mo.disconnect(); },8000);
     })();
   </script>
   <script>
     (function(){
-      var v=document.querySelector('spline-viewer');
       function reveal(){ document.documentElement.classList.add('ready'); }
-      if(v){ v.addEventListener('load', reveal); }
-      // fallback: never let the text stay hidden if the scene is slow/blocked
-      setTimeout(reveal, 2500);
-      if(!v) reveal();
+      // reveal as soon as fonts are ready (or quickly regardless) — independent of the 3D scene
+      if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(reveal); }
+      setTimeout(reveal, 400);
     })();
   </script>
   <div class="scrim" aria-hidden="true"></div>
